@@ -1,6 +1,7 @@
 import Icon from '../components/Icon.jsx';
 import ProjectCard from '../components/ProjectCard.jsx';
-import { Button, EmptyState, SectionTitle } from '../components/ui.jsx';
+import { Button, EmptyState, Notice, SectionTitle } from '../components/ui.jsx';
+import { isStorageEphemeral } from '../lib/storage/index.js';
 import { brand } from '../theme/brand.js';
 import { t } from '../i18n/index.js';
 
@@ -24,6 +25,12 @@ export default function HomeScreen({ projects, onNew, onOpen, onSeeAll }) {
         <Icon name="plus" size={20} />
         {t('home.newDesign')}
       </Button>
+
+      {isStorageEphemeral() && (
+        <div className="mt-4">
+          <Notice>{t('home.ephemeral')}</Notice>
+        </div>
+      )}
 
       {recent.length > 0 ? (
         <>

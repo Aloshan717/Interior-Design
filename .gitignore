@@ -1,5 +1,6 @@
 node_modules/
 dist/
+preview-artifact.html
 .vercel/
 .env
 .env.local

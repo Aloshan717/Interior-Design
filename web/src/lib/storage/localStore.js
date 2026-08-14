@@ -11,9 +11,22 @@ const STORE_BLOBS = 'blobs';
 
 let dbPromise = null;
 
+/**
+ * خطة بديلة في الذاكرة.
+ * IndexedDB قد يكون ممنوعاً: تصفّح Safari الخاص، أو إطار مقيّد، أو رفض المستخدم.
+ * في هذه الحالة يظل التطبيق يعمل كاملاً — لكن العمل يضيع عند إغلاق الصفحة،
+ * والواجهة تنبّه لذلك بدل أن تنهار بصمت.
+ */
+const memory = { projects: new Map(), blobs: new Map() };
+export let isEphemeral = false;
+
 function openDB() {
   if (dbPromise) return dbPromise;
   dbPromise = new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') {
+      reject(new Error('indexeddb_unavailable'));
+      return;
+    }
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = () => {
       const db = req.result;
@@ -31,7 +44,13 @@ function openDB() {
 }
 
 async function tx(store, mode, run) {
-  const db = await openDB();
+  let db;
+  try {
+    db = await openDB();
+  } catch {
+    isEphemeral = true;
+    return memoryTx(store, run);
+  }
   return new Promise((resolve, reject) => {
     const transaction = db.transaction(store, mode);
     const req = run(transaction.objectStore(store));
@@ -43,6 +62,28 @@ async function tx(store, mode, run) {
       transaction.oncomplete = () => resolve();
     }
   });
+}
+
+/** يحاكي واجهة objectStore بما يكفي للعمليات المستخدمة أعلاه */
+function memoryTx(store, run) {
+  const map = store === STORE_PROJECTS ? memory.projects : memory.blobs;
+  const fake = {
+    get: (key) => ({ result: map.get(key) }),
+    getAll: () => ({ result: [...map.values()] }),
+    put: (value, key) => {
+      map.set(key ?? value.projectId, value);
+      return { result: undefined };
+    },
+    delete: (key) => {
+      map.delete(key);
+      return { result: undefined };
+    },
+    clear: () => {
+      map.clear();
+      return { result: undefined };
+    },
+  };
+  return Promise.resolve(run(fake)?.result);
 }
 
 export const localStore = {

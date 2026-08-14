@@ -3,11 +3,14 @@
  * الشاشات تستورد `storage` فقط ولا تعرف أين تعيش البيانات.
  * لتفعيل المزامنة السحابية لاحقاً: أضف supabaseStore.js بنفس الشكل وبدّل السطر أدناه.
  */
-import { localStore, blobURL, releaseURL } from './localStore.js';
+import { localStore, blobURL, releaseURL, isEphemeral } from './localStore.js';
 import { uid } from '../models/project.js';
 
 export const storage = localStore;
 export { blobURL, releaseURL };
+
+/** هل نعمل بلا تخزين دائم؟ تُقرأ بعد أول عملية قراءة */
+export const isStorageEphemeral = () => isEphemeral;
 
 /** يقلّص الصورة قبل التخزين — صور iPhone تصل ٥ ميجا، ولا نحتاج أكثر من 1600px */
 export async function storeImage(file, { maxSize = 1600, thumbSize = 400 } = {}) {
