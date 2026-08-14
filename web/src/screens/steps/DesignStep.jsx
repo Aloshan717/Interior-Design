@@ -65,6 +65,7 @@ export default function DesignStep({ project, update, updateWith, onEdit, onAppr
         id: uid('dsg'),
         versionNumber: 1,
         imageKey,
+        palette: result.palette,
         basedOnConcept: result.basedOnConcept,
         basedOnImageId: project.uploadedImages[0]?.id ?? null,
         detectedItems: result.detectedItems,

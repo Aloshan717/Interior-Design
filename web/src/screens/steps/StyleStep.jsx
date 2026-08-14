@@ -124,7 +124,7 @@ export default function StyleStep({ project, update, onNext }) {
               onClick={() => toggle(ref.id)}
               aria-pressed={picked.includes(ref.id)}
             >
-              <img src={ref.imageURI} className="pick__media pick__media--tall" alt="" />
+              <img src={ref.imageURI} className="pick__media" alt="" />
               {picked.includes(ref.id) && (
                 <span className="pick__check">
                   <Icon name="check" size={15} strokeWidth={2.6} />

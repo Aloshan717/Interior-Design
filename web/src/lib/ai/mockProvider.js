@@ -97,13 +97,17 @@ function promptFrom(t, palette, lighting) {
 
 /* ── ٣ · التصورات الأولية ─────────────────────────────────── */
 
+/**
+ * كل اتجاه يغيّر مستوى الفخامة **ولوحة الألوان** — البند ١٢ يطلب اتجاهات
+ * مختلفة فعلاً لا نسخاً متطابقة. `palette: null` يعني «ابقَ على لوحة ذوقه».
+ */
 const DIRECTIONS = [
-  { tag: 'warm_contemporary', titleAr: 'عصري دافئ', shift: { warmth: 0.2, luxury: 0 } },
-  { tag: 'modern_luxury', titleAr: 'فخامة عصرية', shift: { warmth: 0, luxury: 0.3 } },
-  { tag: 'minimal_warm', titleAr: 'بساطة دافئة', shift: { warmth: 0.15, luxury: -0.25 } },
-  { tag: 'hotel_inspired', titleAr: 'مستوحى من الفنادق', shift: { warmth: -0.1, luxury: 0.25 } },
-  { tag: 'natural_calm', titleAr: 'طبيعي هادئ', shift: { warmth: 0.05, luxury: -0.15 } },
-  { tag: 'bold_statement', titleAr: 'جريء ومميز', shift: { warmth: 0, luxury: 0.15 } },
+  { tag: 'warm_contemporary', titleAr: 'عصري دافئ', luxury: 0, palette: null },
+  { tag: 'modern_luxury', titleAr: 'فخامة عصرية', luxury: 0.3, palette: 'luxe_dark' },
+  { tag: 'minimal_warm', titleAr: 'بساطة دافئة', luxury: -0.25, palette: 'warm_neutral' },
+  { tag: 'hotel_inspired', titleAr: 'مستوحى من الفنادق', luxury: 0.25, palette: 'soft_grey' },
+  { tag: 'natural_calm', titleAr: 'طبيعي هادئ', luxury: -0.15, palette: 'fresh_green' },
+  { tag: 'bold_statement', titleAr: 'جريء ومميز', luxury: 0.15, palette: 'earthy' },
 ];
 
 async function generateConcepts(
@@ -120,15 +124,17 @@ async function generateConcepts(
   // ننتج واحداً تلو الآخر لمحاكاة العرض التدريجي — كل تصور يظهر فور جاهزيته
   for (const dir of picked) {
     await wait(700);
-    const luxury = clamp(styleProfile.traits.luxury + dir.shift.luxury);
+    const luxury = clamp(styleProfile.traits.luxury + dir.luxury);
+    const palette = dir.palette ?? styleProfile.palette;
     const concept = {
       id: uid('cpt'),
       index: results.length,
       directionTag: dir.tag,
       titleAr: dir.titleAr,
+      palette,
       imageURI: roomImage({
         seed: `${styleProfile.id}_${dir.tag}`,
-        palette: styleProfile.palette,
+        palette,
         luxury,
         roomType,
       }),
@@ -152,10 +158,12 @@ async function generateRoomDesign(
   onProgress?.(PHASES.RENDERING_DESIGN);
   await wait(2600);
 
+  const palette = concept.palette ?? styleProfile.palette;
   return {
+    palette,
     imageURI: roomImage({
       seed: `${concept.id}_real`,
-      palette: styleProfile.palette,
+      palette,
       luxury: styleProfile.traits.luxury,
       roomType,
     }),
@@ -269,10 +277,12 @@ async function applyEdit({ baseDesign, intent, styleProfile, roomType }, onProgr
   const luxuryShift =
     intent.change === 'more_luxury' ? 0.25 : intent.change === 'simpler' ? -0.25 : 0;
 
+  const palette = baseDesign.palette ?? styleProfile.palette;
   return {
+    palette,
     imageURI: roomImage({
       seed: `${baseDesign.id}_${intent.target}_${intent.change}`,
-      palette: styleProfile.palette,
+      palette,
       luxury: clamp(styleProfile.traits.luxury + luxuryShift),
       roomType,
     }),

@@ -94,6 +94,7 @@ export default function EditStep({ project, update, updateWith, onDone }) {
           id: uid('dsg'),
           versionNumber,
           imageKey,
+          palette: result.palette,
           basedOnConcept: result.basedOnConcept,
           basedOnImageId: design.basedOnImageId,
           detectedItems: result.detectedItems,
