@@ -1,0 +1,15 @@
+{
+  "name": "مصمم داخلي بالذكاء الاصطناعي",
+  "short_name": "مصمم داخلي",
+  "description": "أعد تصميم غرف منزلك بالذكاء الاصطناعي",
+  "lang": "ar",
+  "dir": "rtl",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F7F5F0",
+  "theme_color": "#F7F5F0",
+  "icons": [
+    { "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

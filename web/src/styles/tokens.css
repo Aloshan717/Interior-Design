@@ -1,0 +1,92 @@
+/*
+  نظام التصميم — البند ٢٢
+  ألوان محايدة فاتحة، والصور هي البطل.
+  كل لون ومسافة وحركة معرّفة هنا فقط. لا قيم صريحة في أي ملف آخر.
+*/
+
+:root {
+  /* ── الأسطح ─────────────────────────────── */
+  --c-page: #f4f1ea; /* off-white دافئ — خلفية الصفحة */
+  --c-surface: #fbfaf7; /* البطاقات */
+  --c-surface-raised: #ffffff; /* العناصر المرتفعة */
+  --c-surface-sunken: #edeae1; /* الحقول والمناطق الغائرة */
+
+  /* ── النص ───────────────────────────────── */
+  --c-text: #24231f; /* charcoal */
+  --c-text-soft: #6b675e;
+  --c-text-faint: #9c978c;
+  --c-on-accent: #fbfaf7;
+
+  /* ── اللكنة ─────────────────────────────── */
+  --c-accent: #8a6f4e; /* نحاسي هادئ */
+  --c-accent-soft: rgba(138, 111, 78, 0.1);
+  --c-accent-line: rgba(138, 111, 78, 0.28);
+
+  /* ── الخطوط الفاصلة ─────────────────────── */
+  --c-line: rgba(36, 35, 31, 0.09);
+  --c-line-strong: rgba(36, 35, 31, 0.16);
+
+  /* ── الحالات ────────────────────────────── */
+  --c-error: #a4472f;
+  --c-error-soft: rgba(164, 71, 47, 0.09);
+  --c-ok: #4f6b4a;
+
+  /* ── لوحة الأذواق (للصور التوضيحية) ─────── */
+  --p-sand: #d9c9ae;
+  --p-clay: #c2a68a;
+  --p-stone: #b9b5ab;
+  --p-olive: #8f9179;
+  --p-ink: #4a4740;
+
+  /* ── المسافات ───────────────────────────── */
+  --s-1: 4px;
+  --s-2: 8px;
+  --s-3: 12px;
+  --s-4: 16px;
+  --s-5: 24px;
+  --s-6: 32px;
+  --s-7: 48px;
+  --s-8: 64px;
+
+  /* ── الحواف ─────────────────────────────── */
+  --r-sm: 10px;
+  --r-md: 16px;
+  --r-lg: 22px;
+  --r-full: 999px;
+
+  /* ── الظلال — خفيفة جداً، لا ثقل ────────── */
+  --sh-sm: 0 1px 2px rgba(36, 35, 31, 0.04);
+  --sh-md: 0 4px 16px rgba(36, 35, 31, 0.06);
+  --sh-lg: 0 12px 40px rgba(36, 35, 31, 0.1);
+
+  /* ── الطباعة ────────────────────────────── */
+  --font: ui-rounded, -apple-system, 'SF Arabic', 'SF Pro Text', 'Segoe UI',
+    'Noto Sans Arabic', 'Helvetica Neue', system-ui, sans-serif;
+
+  --t-display: 30px;
+  --t-title: 22px;
+  --t-heading: 17px;
+  --t-body: 15px;
+  --t-small: 13px;
+  --t-tiny: 11px;
+
+  /* ── الحركة — ناعمة، بلا ارتداد صاخب ────── */
+  --e-out: cubic-bezier(0.22, 0.9, 0.3, 1);
+  --d-fast: 160ms;
+  --d-base: 280ms;
+  --d-slow: 480ms;
+
+  /* ── المناطق الآمنة في iPhone ───────────── */
+  --safe-top: env(safe-area-inset-top, 0px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+
+  --tabbar-h: 62px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --d-fast: 0ms;
+    --d-base: 0ms;
+    --d-slow: 0ms;
+  }
+}
