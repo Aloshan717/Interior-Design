@@ -534,10 +534,15 @@ textarea.field {
   box-shadow: inset 0 0 0 1px transparent;
 }
 
+/*
+  الاختيار يجب أن يُرى من مسافة ذراع بلا تدقيق.
+  النسخة السابقة كانت تلوّن النص وتضيف إطاراً شعرياً فقط — فكان
+  المستخدم يضغط ولا يتأكد أن ضغطته سُجّلت.
+*/
 .chip[data-selected='true'] {
-  background: var(--c-accent-soft);
-  color: var(--c-accent);
-  box-shadow: inset 0 0 0 1px var(--c-accent-line);
+  background: var(--c-text);
+  color: var(--c-on-accent);
+  box-shadow: none;
 }
 
 /* ─────────────────────────────────────────────
