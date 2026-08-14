@@ -1,0 +1,9 @@
+{
+  "name": "ai-interior-designer-root",
+  "private": true,
+  "type": "module",
+  "description": "جذر المستودع — يوجد هنا لأن دوال api/ تستخدم صيغة ESM. لا تبعيات: نستخدم fetch المدمج في Node.",
+  "engines": {
+    "node": ">=18"
+  }
+}

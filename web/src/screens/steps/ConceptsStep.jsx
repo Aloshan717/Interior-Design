@@ -3,6 +3,7 @@ import { ActionBar, Button, Lightbox, Notice, ScreenHeader } from '../../compone
 import Icon from '../../components/Icon.jsx';
 import Loader from '../../components/Loader.jsx';
 import { ai, PHASES } from '../../lib/ai/index.js';
+import { errorText } from '../../lib/errors.js';
 import { storeGeneratedImage, blobURL } from '../../lib/storage/index.js';
 import { t } from '../../i18n/index.js';
 
@@ -31,9 +32,11 @@ export default function ConceptsStep({ project, update, updateWith, onNext }) {
     try {
       await ai.generateConcepts(
         {
+          images: project.uploadedImages,
           spaceAnalysis: project.spaceAnalysis,
           styleProfile: project.generatedStyleProfile,
           roomType: project.roomType,
+          budget: project.budget,
           count: 4,
           exclude: concepts.map((c) => c.directionTag),
         },
@@ -47,8 +50,8 @@ export default function ConceptsStep({ project, update, updateWith, onNext }) {
           }));
         },
       );
-    } catch {
-      setError(t('errors.generationFailed'));
+    } catch (err) {
+      setError(errorText(err));
     } finally {
       setBusy(false);
     }

@@ -1,7 +1,7 @@
 /**
  * نقطة التبديل الوحيدة بين مزوّدي الذكاء الاصطناعي — البند ٢٨.
  *
- * لتفعيل التوليد الحقيقي: ضع VITE_AI_PROVIDER=fal في متغيرات البيئة.
+ * لتفعيل التوليد الحقيقي: VITE_AI_PROVIDER=fal في متغيرات بيئة Vercel.
  * لا شاشة ولا مكوّن يتغيّر.
  */
 import { mockProvider } from './mockProvider.js';
@@ -17,4 +17,5 @@ const selected = import.meta.env.VITE_AI_PROVIDER ?? 'mock';
 export const ai = providers[selected] ?? mockProvider;
 
 export { PHASES, INTENT_KIND } from './types.js';
-export { STYLE_REFERENCES } from './styleReferences.js';
+export { getStyleReferences, referenceSrc, clearStyleReferences } from './styleReferences.js';
+export { AIError } from './falProvider.js';

@@ -3,6 +3,7 @@ import { Button, ScreenHeader } from '../../components/ui.jsx';
 import Icon from '../../components/Icon.jsx';
 import VersionStrip from '../../components/VersionStrip.jsx';
 import { ai, INTENT_KIND } from '../../lib/ai/index.js';
+import { errorText } from '../../lib/errors.js';
 import { storeGeneratedImage, blobURL } from '../../lib/storage/index.js';
 import { cheaperAlternatives } from '../../lib/products/index.js';
 import { currentDesign, uid } from '../../lib/models/project.js';
@@ -83,6 +84,7 @@ export default function EditStep({ project, update, updateWith, onDone }) {
       const result = await ai.applyEdit({
         baseDesign: design,
         intent,
+        rawText: userText,
         styleProfile: project.generatedStyleProfile,
         roomType: project.roomType,
       });
@@ -129,8 +131,8 @@ export default function EditStep({ project, update, updateWith, onDone }) {
           ),
         };
       });
-    } catch {
-      finish(modId, { reply: t('errors.generationFailed'), status: 'failed' });
+    } catch (err) {
+      finish(modId, { reply: errorText(err), status: 'failed' });
     } finally {
       setBusy(false);
     }

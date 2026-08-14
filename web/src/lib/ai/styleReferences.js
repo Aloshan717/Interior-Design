@@ -1,39 +1,75 @@
 /**
- * الصور المرجعية لاكتشاف الذوق — البند ١١.
+ * صور اكتشاف الذوق — البند ١١.
  *
  * ليست ١٢ صورة عشوائية جميلة: هي **مصفوفة مقصودة** تغطي أطراف أربعة محاور
  * (الدفء، الفخامة، التباين، الامتلاء) حتى تفرّق فعلاً بين الأذواق.
- * لو كانت كلها «جميلة ومتشابهة» لما استطعنا استنتاج شيء من الاختيار.
  *
- * حالياً مرسومة محلياً. عند الإنتاج تُستبدل بـ١٢ صورة حقيقية مولّدة مرة واحدة
- * ومخزّنة في `public/` — ملكية كاملة وتكلفة صفر متكررة.
+ * تُولَّد **مرة واحدة في عمر التطبيق** وتُخزّن على الجهاز، فتكلفتها تُدفع
+ * مرة ولا تتكرر أبداً. المزوّد التجريبي يرسمها محلياً بلا تكلفة.
  */
-import { roomImage } from './mockImages.js';
+import { storage, blobURL, storeGeneratedImage } from '../storage/index.js';
 
-const defs = [
-  { id: 'ref_01', palette: 'warm_neutral', warmth: 0.9, luxury: 0.35, contrast: 0.2, density: 0.35, materials: ['خشب فاتح', 'قطن'], lighting: 'warm_soft' },
-  { id: 'ref_02', palette: 'luxe_dark',    warmth: 0.75, luxury: 0.95, contrast: 0.8, density: 0.7,  materials: ['رخام', 'نحاس', 'مخمل'], lighting: 'dramatic' },
-  { id: 'ref_03', palette: 'soft_grey',    warmth: 0.2,  luxury: 0.4,  contrast: 0.25, density: 0.2, materials: ['خرسانة ناعمة', 'كتّان'], lighting: 'daylight' },
-  { id: 'ref_04', palette: 'earthy',       warmth: 0.85, luxury: 0.55, contrast: 0.5, density: 0.65, materials: ['طين', 'خشب داكن', 'صوف'], lighting: 'warm_soft' },
-  { id: 'ref_05', palette: 'cool_calm',    warmth: 0.3,  luxury: 0.6,  contrast: 0.3, density: 0.3,  materials: ['حجر', 'زجاج'], lighting: 'daylight' },
-  { id: 'ref_06', palette: 'fresh_green',  warmth: 0.55, luxury: 0.3,  contrast: 0.35, density: 0.55, materials: ['خيزران', 'نباتات'], lighting: 'daylight' },
-  { id: 'ref_07', palette: 'warm_neutral', warmth: 0.8,  luxury: 0.75, contrast: 0.45, density: 0.5, materials: ['جوز', 'جلد', 'نحاس'], lighting: 'warm_soft' },
-  { id: 'ref_08', palette: 'soft_grey',    warmth: 0.35, luxury: 0.85, contrast: 0.7, density: 0.4,  materials: ['رخام رمادي', 'فولاذ'], lighting: 'dramatic' },
-  { id: 'ref_09', palette: 'earthy',       warmth: 0.95, luxury: 0.25, contrast: 0.3, density: 0.75, materials: ['سعف', 'قطن خشن'], lighting: 'warm_soft' },
-  { id: 'ref_10', palette: 'luxe_dark',    warmth: 0.6,  luxury: 0.8,  contrast: 0.9, density: 0.35, materials: ['خشب أسود', 'ذهبي'], lighting: 'dramatic' },
-  { id: 'ref_11', palette: 'cool_calm',    warmth: 0.25, luxury: 0.45, contrast: 0.15, density: 0.15, materials: ['أبيض مطفي', 'كتّان'], lighting: 'daylight' },
-  { id: 'ref_12', palette: 'fresh_green',  warmth: 0.7,  luxury: 0.65, contrast: 0.55, density: 0.6, materials: ['خشب زيتي', 'سيراميك'], lighting: 'warm_soft' },
-];
+const CACHE_KEY = 'style-references';
 
-export const STYLE_REFERENCES = defs.map((d, i) => ({
-  ...d,
-  traits: { warmth: d.warmth, luxury: d.luxury, contrast: d.contrast, density: d.density },
-  imageURI: roomImage({
-    seed: d.id,
-    palette: d.palette,
-    luxury: d.luxury,
-    roomType: i % 3 === 0 ? 'master_bedroom' : i % 3 === 1 ? 'living_room' : 'dining_room',
-  }),
-}));
+/**
+ * @param {object} provider مزوّد الذكاء الاصطناعي
+ * @param {(ratio:number)=>void} onProgress نسبة الإنجاز 0..1 عند التوليد
+ * @returns {Promise<Array<{id, traits, imageKey}>>}
+ */
+export async function getStyleReferences(provider, onProgress) {
+  const cached = readCache(provider.id);
+  if (cached && (await allPresent(cached))) return cached;
 
-export const referenceById = (id) => STYLE_REFERENCES.find((r) => r.id === id);
+  const generated = await provider.generateStyleReferences(onProgress);
+
+  const stored = [];
+  for (const ref of generated) {
+    stored.push({
+      id: ref.id,
+      traits: ref.traits,
+      imageKey: await storeGeneratedImage(ref.imageURI),
+    });
+  }
+
+  writeCache(provider.id, stored);
+  return stored;
+}
+
+/** يعيد عنواناً قابلاً للعرض لصورة مرجعية */
+export const referenceSrc = (ref) => blobURL(ref.imageKey);
+
+export function clearStyleReferences(providerId) {
+  const cached = readCache(providerId);
+  cached?.forEach((ref) => storage.deleteBlob(ref.imageKey).catch(() => {}));
+  localStorage.removeItem(`${CACHE_KEY}:${providerId}`);
+}
+
+/* ── الذاكرة المحلية ─────────────────────────────────────
+   المفتاح يحمل معرّف المزوّد: تبديل المزوّد يولّد مجموعة جديدة
+   بدل خلط رسومات تجريبية بصور حقيقية. */
+
+function readCache(providerId) {
+  try {
+    const raw = localStorage.getItem(`${CACHE_KEY}:${providerId}`);
+    const parsed = raw ? JSON.parse(raw) : null;
+    return Array.isArray(parsed) && parsed.length ? parsed : null;
+  } catch {
+    return null;
+  }
+}
+
+function writeCache(providerId, refs) {
+  try {
+    localStorage.setItem(`${CACHE_KEY}:${providerId}`, JSON.stringify(refs));
+  } catch {
+    /* التخزين ممتلئ أو ممنوع — نعمل بلا ذاكرة ونعيد التوليد لاحقاً */
+  }
+}
+
+/** يتحقق أن الصور ما زالت موجودة فعلاً — قد يُمسح التخزين دون الذاكرة */
+async function allPresent(refs) {
+  for (const ref of refs) {
+    if (!(await storage.getBlob(ref.imageKey))) return false;
+  }
+  return true;
+}

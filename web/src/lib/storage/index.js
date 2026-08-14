@@ -53,6 +53,27 @@ async function resize(bitmap, maxSize, quality) {
   return { blob, width, height };
 }
 
+/**
+ * يقرأ صورة مخزّنة ويعيدها كـdata URI لإرسالها للخادم.
+ * نقلّص الحجم قبل الإرسال: نموذج الصور لا يستفيد من أكثر من 1280px،
+ * والحد الأقصى لحجم الطلب في Vercel محدود.
+ */
+export async function imageAsDataURI(blobKey, { maxSize = 1280, quality = 0.82 } = {}) {
+  const blob = await storage.getBlob(blobKey);
+  if (!blob) return null;
+
+  const bitmap = await createImageBitmap(blob);
+  const { blob: sized } = await resize(bitmap, maxSize, quality);
+  bitmap.close?.();
+
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(sized);
+  });
+}
+
 /** تخزين صورة مولّدة (تصل كـdata URI من المزوّد) */
 export async function storeGeneratedImage(dataURI) {
   const blob = await (await fetch(dataURI)).blob();

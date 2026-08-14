@@ -5,12 +5,49 @@
  * ينفّذ نفس عقد `types.js` بالضبط، فاستبداله بالمزوّد الحقيقي
  * لا يمس أي شاشة.
  */
-import { roomImage, PALETTES } from './mockImages.js';
-import { referenceById } from './styleReferences.js';
+import { roomImage, PALETTES, PALETTE_KEYS } from './mockImages.js';
 import { PHASES, INTENT_KIND } from './types.js';
+import { describe, promptFrom } from './styleProfile.js';
+import { itemsFor } from './detectedItems.js';
 import { uid } from '../models/project.js';
 
 const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+
+/* ── صور الذوق المرجعية (مرسومة محلياً) ─────────────────── */
+
+/** مصفوفة مقصودة تغطي أطراف المحاور الأربعة — لا صوراً متشابهة */
+const REF_DEFS = [
+  { id: 'ref_01', palette: 'warm_neutral', warmth: 0.9,  luxury: 0.35, contrast: 0.2,  density: 0.35, materials: ['خشب فاتح', 'قطن'] },
+  { id: 'ref_02', palette: 'luxe_dark',    warmth: 0.75, luxury: 0.95, contrast: 0.8,  density: 0.7,  materials: ['رخام', 'نحاس', 'مخمل'] },
+  { id: 'ref_03', palette: 'soft_grey',    warmth: 0.2,  luxury: 0.4,  contrast: 0.25, density: 0.2,  materials: ['خرسانة ناعمة', 'كتّان'] },
+  { id: 'ref_04', palette: 'earthy',       warmth: 0.85, luxury: 0.55, contrast: 0.5,  density: 0.65, materials: ['طين', 'خشب داكن', 'صوف'] },
+  { id: 'ref_05', palette: 'cool_calm',    warmth: 0.3,  luxury: 0.6,  contrast: 0.3,  density: 0.3,  materials: ['حجر', 'زجاج'] },
+  { id: 'ref_06', palette: 'fresh_green',  warmth: 0.55, luxury: 0.3,  contrast: 0.35, density: 0.55, materials: ['خيزران', 'نباتات'] },
+  { id: 'ref_07', palette: 'warm_neutral', warmth: 0.8,  luxury: 0.75, contrast: 0.45, density: 0.5,  materials: ['جوز', 'جلد', 'نحاس'] },
+  { id: 'ref_08', palette: 'soft_grey',    warmth: 0.35, luxury: 0.85, contrast: 0.7,  density: 0.4,  materials: ['رخام رمادي', 'فولاذ'] },
+  { id: 'ref_09', palette: 'earthy',       warmth: 0.95, luxury: 0.25, contrast: 0.3,  density: 0.75, materials: ['سعف', 'قطن خشن'] },
+  { id: 'ref_10', palette: 'luxe_dark',    warmth: 0.6,  luxury: 0.8,  contrast: 0.9,  density: 0.35, materials: ['خشب أسود', 'ذهبي'] },
+  { id: 'ref_11', palette: 'cool_calm',    warmth: 0.25, luxury: 0.45, contrast: 0.15, density: 0.15, materials: ['أبيض مطفي', 'كتّان'] },
+  { id: 'ref_12', palette: 'fresh_green',  warmth: 0.7,  luxury: 0.65, contrast: 0.55, density: 0.6,  materials: ['خشب زيتي', 'سيراميك'] },
+];
+
+async function generateStyleReferences(onProgress) {
+  const refs = REF_DEFS.map((d, i) => ({
+    id: d.id,
+    traits: { warmth: d.warmth, luxury: d.luxury, contrast: d.contrast, density: d.density },
+    palette: d.palette,
+    paletteColors: PALETTES[d.palette],
+    materials: d.materials,
+    imageURI: roomImage({
+      seed: d.id,
+      palette: d.palette,
+      luxury: d.luxury,
+      roomType: i % 3 === 0 ? 'master_bedroom' : i % 3 === 1 ? 'living_room' : 'dining_room',
+    }),
+  }));
+  onProgress?.(1);
+  return refs;
+}
 
 /* ── ١ · تحليل المكان ──────────────────────────────────────── */
 
@@ -37,14 +74,14 @@ async function analyzeSpace({ images, roomType, notes }, onProgress) {
 
 /* ── ٢ · بناء الملف الذوقي ────────────────────────────────── */
 
-async function buildStyleProfile({ selectedRefs }, onProgress) {
+async function buildStyleProfile({ selectedRefs, references }, onProgress) {
   onProgress?.(PHASES.BUILDING_PROFILE);
   await wait(1600);
 
-  const refs = selectedRefs.map(referenceById).filter(Boolean);
+  const refs = (references ?? []).filter((r) => selectedRefs.includes(r.id));
   if (!refs.length) throw new Error('no_refs');
 
-  const avg = (key) => refs.reduce((sum, r) => sum + r.traits[key], 0) / refs.length;
+  const avg = (key) => refs.reduce((sum, r) => sum + (r.traits?.[key] ?? 0.5), 0) / refs.length;
   const traits = {
     warmth: avg('warmth'),
     luxury: avg('luxury'),
@@ -52,13 +89,14 @@ async function buildStyleProfile({ selectedRefs }, onProgress) {
     density: avg('density'),
   };
 
-  // اللوحة الأكثر تكراراً بين اختياراته
+  // اللوحة الأكثر تكراراً بين اختياراته — تُستخدم في الرسم التوضيحي فقط
   const counts = {};
-  refs.forEach((r) => (counts[r.palette] = (counts[r.palette] ?? 0) + 1));
+  refs.forEach((r) => {
+    const p = r.palette ?? PALETTE_KEYS[0];
+    counts[p] = (counts[p] ?? 0) + 1;
+  });
   const palette = Object.entries(counts).sort((a, b) => b[1] - a[1])[0][0];
-
-  const materials = [...new Set(refs.flatMap((r) => r.materials))].slice(0, 4);
-  const lighting = mode(refs.map((r) => r.lighting));
+  const materials = [...new Set(refs.flatMap((r) => r.materials ?? []))].slice(0, 4);
 
   return {
     id: uid('sty'),
@@ -67,32 +105,9 @@ async function buildStyleProfile({ selectedRefs }, onProgress) {
     palette,
     paletteColors: PALETTES[palette],
     materials,
-    lighting,
     descriptionAr: describe(traits, materials),
-    promptFragment: promptFrom(traits, palette, lighting),
+    promptFragment: promptFrom(traits),
   };
-}
-
-/** الجملة التي يراها المستخدم — بلا مصطلحات تصميم يحتاج شرحها (البند ١١) */
-function describe(t, materials) {
-  const warmth = t.warmth > 0.65 ? 'الدافئ' : t.warmth < 0.4 ? 'الهادئ البارد' : 'المتوازن';
-  const luxury =
-    t.luxury > 0.7 ? 'مع لمسات فاخرة واضحة' : t.luxury < 0.4 ? 'بروح بسيطة ومريحة' : 'مع تفاصيل أنيقة';
-  const density = t.density > 0.6 ? 'وأجواء ممتلئة دافئة' : 'ومساحات مفتوحة مرتّبة';
-  const mat = materials.length ? ` تميل لخامات مثل ${materials.slice(0, 2).join(' و')}.` : '';
-  return `ذوقك يميل إلى التصميم العصري ${warmth} ${luxury} ${density}.${mat}`;
-}
-
-function promptFrom(t, palette, lighting) {
-  const parts = [
-    t.warmth > 0.6 ? 'warm contemporary' : 'cool contemporary',
-    t.luxury > 0.7 ? 'refined luxury details' : t.luxury < 0.4 ? 'simple and calm' : 'elegant details',
-    t.contrast > 0.6 ? 'strong contrast' : 'soft tonal contrast',
-    t.density > 0.6 ? 'layered and cozy' : 'uncluttered',
-    `${palette.replace('_', ' ')} palette`,
-    lighting === 'dramatic' ? 'dramatic accent lighting' : 'soft ambient lighting',
-  ];
-  return parts.join(', ');
 }
 
 /* ── ٣ · التصورات الأولية ─────────────────────────────────── */
@@ -171,39 +186,6 @@ async function generateRoomDesign(
     promptUsed: `${styleProfile.promptFragment}, ${concept.directionTag}, preserve original room geometry`,
     basedOnConcept: concept.id,
   };
-}
-
-/** العناصر المرصودة — الجسر بين الصورة والمنتجات (البند ١٦) */
-function itemsFor(roomType) {
-  // `subtype` يمنع مطابقة كنبة بسرير أو طاولة وسط بكومدينة —
-  // الفئة وحدها ليست كافية للتمييز
-  const shared = [
-    { category: 'lighting', subtype: 'light', labelAr: 'الإنارة', descriptor: 'ceiling light fixture' },
-    { category: 'rug', subtype: 'rug', labelAr: 'السجادة', descriptor: 'area rug' },
-    { category: 'curtains', subtype: 'curtain', labelAr: 'الستائر', descriptor: 'floor length curtains' },
-    { category: 'decor', subtype: 'decor', labelAr: 'الديكور', descriptor: 'wall art and accessories' },
-  ];
-  const specific =
-    roomType === 'master_bedroom' || roomType === 'kids_bedroom'
-      ? [
-          { category: 'furniture', subtype: 'bed', labelAr: 'السرير', descriptor: 'upholstered bed frame' },
-          { category: 'table', subtype: 'side', labelAr: 'الكومدينة', descriptor: 'bedside table' },
-        ]
-      : roomType === 'dining_room'
-        ? [
-            { category: 'furniture', subtype: 'dining', labelAr: 'طقم الطعام', descriptor: 'dining table and chairs' },
-            { category: 'table', subtype: 'side', labelAr: 'الكونسول', descriptor: 'console table' },
-          ]
-        : [
-            { category: 'furniture', subtype: 'sofa', labelAr: 'الكنبة', descriptor: 'fabric sofa' },
-            { category: 'table', subtype: 'table', labelAr: 'طاولة الوسط', descriptor: 'coffee table' },
-          ];
-
-  return [...specific, ...shared].map((item) => ({
-    id: uid('itm'),
-    ...item,
-    matchedProductId: null,
-  }));
 }
 
 /* ── ٥ · فهم أمر التعديل ──────────────────────────────────── */
@@ -293,12 +275,6 @@ async function applyEdit({ baseDesign, intent, styleProfile, roomType }, onProgr
 }
 
 const clamp = (n) => Math.max(0, Math.min(1, n));
-const mode = (arr) => {
-  const c = {};
-  arr.forEach((v) => (c[v] = (c[v] ?? 0) + 1));
-  return Object.entries(c).sort((a, b) => b[1] - a[1])[0][0];
-};
-
 export const mockProvider = {
   id: 'mock',
   isMock: true,
@@ -308,4 +284,5 @@ export const mockProvider = {
   generateRoomDesign,
   parseEditIntent,
   applyEdit,
+  generateStyleReferences,
 };

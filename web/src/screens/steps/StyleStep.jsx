@@ -1,8 +1,9 @@
-import { useState } from 'react';
-import { ActionBar, Button, Notice, ScreenHeader } from '../../components/ui.jsx';
+import { useEffect, useRef, useState } from 'react';
+import { ActionBar, Button, Notice, ScreenHeader, StoredImage } from '../../components/ui.jsx';
 import Icon from '../../components/Icon.jsx';
 import Loader from '../../components/Loader.jsx';
-import { ai, PHASES, STYLE_REFERENCES } from '../../lib/ai/index.js';
+import { ai, PHASES, getStyleReferences } from '../../lib/ai/index.js';
+import { errorText } from '../../lib/errors.js';
 import { t } from '../../i18n/index.js';
 
 const MIN_PICKS = 3;
@@ -13,11 +14,23 @@ const FLOW = [PHASES.ANALYZING_SPACE, PHASES.BUILDING_PROFILE];
  * لا نسأل «ما نمطك المفضل؟» — المستخدم العادي لا يعرف أسماء الأنماط.
  */
 export default function StyleStep({ project, update, onNext }) {
+  const [references, setReferences] = useState(null);
+  const [refProgress, setRefProgress] = useState(0);
   const [phase, setPhase] = useState(null);
   const [error, setError] = useState(null);
+  const loading = useRef(false);
 
   const picked = project.selectedStyleImages;
   const profile = project.generatedStyleProfile;
+
+  // الصور المرجعية تُولَّد مرة واحدة في عمر التطبيق ثم تُقرأ من الجهاز
+  useEffect(() => {
+    if (loading.current) return;
+    loading.current = true;
+    getStyleReferences(ai, setRefProgress)
+      .then(setReferences)
+      .catch((err) => setError(errorText(err)));
+  }, []);
 
   function toggle(id) {
     update({
@@ -36,19 +49,42 @@ export default function StyleStep({ project, update, onNext }) {
           images: project.uploadedImages,
           roomType: project.roomType,
           notes: project.userNotes,
+          keepItems: project.existingFurniturePreferences?.keepItems,
+          replaceItems: project.existingFurniturePreferences?.replaceItems,
         },
         setPhase,
       );
-      const styleProfile = await ai.buildStyleProfile({ selectedRefs: picked }, setPhase);
+      const styleProfile = await ai.buildStyleProfile(
+        { selectedRefs: picked, references },
+        setPhase,
+      );
       update({ spaceAnalysis, generatedStyleProfile: styleProfile });
-    } catch {
-      setError(t('errors.generic'));
+    } catch (err) {
+      setError(errorText(err));
     } finally {
       setPhase(null);
     }
   }
 
   if (phase) return <Loader phases={FLOW} current={phase} />;
+
+  /* ── انتظار الصور المرجعية ── */
+  if (!references && !error) {
+    return (
+      <div className="loader">
+        <div className="loader__orb" />
+        <div className="stack center">
+          <p className="heading">{t('style.preparing')}</p>
+          <p className="small faint">{t('style.preparingNote')}</p>
+        </div>
+        {refProgress > 0 && (
+          <div className="stepper__track" style={{ maxWidth: 240 }}>
+            <div className="stepper__fill" style={{ width: `${Math.round(refProgress * 100)}%` }} />
+          </div>
+        )}
+      </div>
+    );
+  }
 
   /* ── نتيجة التحليل ── */
   if (profile) {
@@ -61,34 +97,33 @@ export default function StyleStep({ project, update, onNext }) {
             <p className="body" style={{ lineHeight: 1.8 }}>
               {profile.descriptionAr}
             </p>
-            <div className="row mt-4" style={{ gap: 6 }}>
-              {profile.paletteColors.map((color) => (
-                <span
-                  key={color}
-                  style={{
-                    width: 34,
-                    height: 34,
-                    borderRadius: 'var(--r-full)',
-                    background: color,
-                    boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.07)',
-                  }}
-                />
-              ))}
-            </div>
+            {profile.paletteColors && (
+              <div className="row mt-4" style={{ gap: 6 }}>
+                {profile.paletteColors.map((color) => (
+                  <span
+                    key={color}
+                    style={{
+                      width: 34,
+                      height: 34,
+                      borderRadius: 'var(--r-full)',
+                      background: color,
+                      boxShadow: 'inset 0 0 0 1px rgba(0,0,0,.07)',
+                    }}
+                  />
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="grid-3 mt-4">
             {picked.slice(0, 6).map((id) => {
-              const ref = STYLE_REFERENCES.find((r) => r.id === id);
-              return <img key={id} src={ref?.imageURI} className="thumb" alt="" />;
+              const ref = references?.find((r) => r.id === id);
+              return ref ? <StoredImage key={id} imageKey={ref.imageKey} alt="" /> : null;
             })}
           </div>
 
           <div className="mt-4 center">
-            <Button
-              variant="ghost"
-              onClick={() => update({ generatedStyleProfile: null })}
-            >
+            <Button variant="ghost" onClick={() => update({ generatedStyleProfile: null })}>
               {t('style.redo')}
             </Button>
           </div>
@@ -116,7 +151,7 @@ export default function StyleStep({ project, update, onNext }) {
         )}
 
         <div className="grid-2">
-          {STYLE_REFERENCES.map((ref) => (
+          {(references ?? []).map((ref) => (
             <button
               key={ref.id}
               className="pick"
@@ -124,7 +159,7 @@ export default function StyleStep({ project, update, onNext }) {
               onClick={() => toggle(ref.id)}
               aria-pressed={picked.includes(ref.id)}
             >
-              <img src={ref.imageURI} className="pick__media" alt="" />
+              <StoredImage imageKey={ref.imageKey} className="pick__media" alt="" />
               {picked.includes(ref.id) && (
                 <span className="pick__check">
                   <Icon name="check" size={15} strokeWidth={2.6} />
@@ -137,7 +172,9 @@ export default function StyleStep({ project, update, onNext }) {
 
       <ActionBar>
         <p className="small faint center" style={{ marginBottom: 'var(--s-2)' }}>
-          {picked.length < MIN_PICKS ? t('style.needMore') : t('style.selected', { n: picked.length })}
+          {picked.length < MIN_PICKS
+            ? t('style.needMore')
+            : t('style.selected', { n: picked.length })}
         </p>
         <Button block disabled={picked.length < MIN_PICKS} onClick={analyze}>
           {t('common.next')}

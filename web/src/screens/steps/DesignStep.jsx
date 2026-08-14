@@ -4,6 +4,7 @@ import Loader from '../../components/Loader.jsx';
 import DesignSummary from '../../components/DesignSummary.jsx';
 import VersionStrip from '../../components/VersionStrip.jsx';
 import { ai, PHASES } from '../../lib/ai/index.js';
+import { errorText } from '../../lib/errors.js';
 import { storeGeneratedImage } from '../../lib/storage/index.js';
 import { matchProducts, swapProduct } from '../../lib/products/index.js';
 import { currentDesign, uid } from '../../lib/models/project.js';
@@ -38,7 +39,7 @@ export default function DesignStep({ project, update, updateWith, onEdit, onAppr
 
       const result = await ai.generateRoomDesign(
         {
-          roomImage: project.uploadedImages[0],
+          images: project.uploadedImages,
           spaceAnalysis: project.spaceAnalysis,
           styleProfile: project.generatedStyleProfile,
           concept,
@@ -91,8 +92,8 @@ export default function DesignStep({ project, update, updateWith, onEdit, onAppr
         costByCategory: matched.byCategory,
         totalEstimatedCost: matched.total,
       });
-    } catch {
-      setError(t('errors.generationFailed'));
+    } catch (err) {
+      setError(errorText(err));
     } finally {
       setPhase(null);
     }
