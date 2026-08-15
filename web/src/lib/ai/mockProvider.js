@@ -31,7 +31,7 @@ const REF_DEFS = [
   { id: 'ref_12', palette: 'fresh_green',  warmth: 0.7,  luxury: 0.65, contrast: 0.55, density: 0.6,  materials: ['خشب زيتي', 'سيراميك'] },
 ];
 
-async function generateStyleReferences(onProgress) {
+async function generateStyleReferences(onProgress, onRef) {
   const refs = REF_DEFS.map((d, i) => ({
     id: d.id,
     traits: { warmth: d.warmth, luxury: d.luxury, contrast: d.contrast, density: d.density },
@@ -45,7 +45,9 @@ async function generateStyleReferences(onProgress) {
       roomType: i % 3 === 0 ? 'master_bedroom' : i % 3 === 1 ? 'living_room' : 'dining_room',
     }),
   }));
-  onProgress?.(1);
+
+  for (const ref of refs) await onRef?.(ref);
+  onProgress?.(1, refs.length);
   return refs;
 }
 

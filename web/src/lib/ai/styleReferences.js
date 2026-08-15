@@ -16,21 +16,41 @@ const CACHE_KEY = 'style-references';
  * @param {(ratio:number)=>void} onProgress نسبة الإنجاز 0..1 عند التوليد
  * @returns {Promise<Array<{id, traits, imageKey}>>}
  */
-export async function getStyleReferences(provider, onProgress) {
+export async function getStyleReferences(provider, onProgress, onRef) {
   const cached = readCache(provider.id);
   if (cached && (await allPresent(cached))) return cached;
 
-  const generated = await provider.generateStyleReferences(onProgress);
-
   const stored = [];
-  for (const ref of generated) {
-    stored.push({
+
+  // نخزّن كل صورة لحظة وصولها ونمرّرها للشاشة فوراً
+  const generated = await provider.generateStyleReferences(onProgress, async (ref) => {
+    const entry = {
       id: ref.id,
       traits: ref.traits,
+      palette: ref.palette ?? null,
+      paletteColors: ref.paletteColors ?? null,
+      materials: ref.materials ?? null,
       imageKey: await storeGeneratedImage(ref.imageURI),
-    });
+    };
+    stored.push(entry);
+    await onRef?.(entry);
+  });
+
+  // مزوّد لا يدعم التسليم التدريجي: نخزّن دفعة واحدة
+  if (!stored.length) {
+    for (const ref of generated) {
+      stored.push({
+        id: ref.id,
+        traits: ref.traits,
+        palette: ref.palette ?? null,
+        paletteColors: ref.paletteColors ?? null,
+        materials: ref.materials ?? null,
+        imageKey: await storeGeneratedImage(ref.imageURI),
+      });
+    }
   }
 
+  stored.sort((a, b) => a.id.localeCompare(b.id));
   writeCache(provider.id, stored);
   return stored;
 }

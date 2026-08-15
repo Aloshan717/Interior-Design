@@ -212,7 +212,7 @@ async function applyEdit({ baseDesign, intent, rawText, roomType }, onProgress) 
 
 /* ── ٧ · صور الذوق المرجعية (مرة واحدة) ────────────────── */
 
-async function generateStyleReferences(onProgress) {
+async function generateStyleReferences(onProgress, onRef) {
   const { jobs } = await post('/api/generate', { task: 'style_references' });
 
   const refs = [];
@@ -221,11 +221,15 @@ async function generateStyleReferences(onProgress) {
     jobs.map(async (job) => {
       try {
         const imageURI = await awaitJob(job.jobId);
-        refs.push({ id: job.refId, traits: job.traits, imageURI });
+        const ref = { id: job.refId, traits: job.traits, imageURI };
+        refs.push(ref);
+        // نسلّم كل صورة فور جاهزيتها — المستخدم يرى الشبكة تمتلئ
+        // بدل شاشة انتظار فارغة دقيقتين
+        await onRef?.(ref);
       } catch {
         /* صورة مرجعية واحدة ناقصة لا توقف الباقي */
       } finally {
-        onProgress?.(++done / jobs.length);
+        onProgress?.(++done / jobs.length, jobs.length);
       }
     }),
   );

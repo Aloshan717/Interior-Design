@@ -14,8 +14,9 @@ const FLOW = [PHASES.ANALYZING_SPACE, PHASES.BUILDING_PROFILE];
  * لا نسأل «ما نمطك المفضل؟» — المستخدم العادي لا يعرف أسماء الأنماط.
  */
 export default function StyleStep({ project, update, onNext }) {
-  const [references, setReferences] = useState(null);
-  const [refProgress, setRefProgress] = useState(0);
+  const [references, setReferences] = useState([]);
+  const [refsReady, setRefsReady] = useState(false);
+  const [refTotal, setRefTotal] = useState(12);
   const [phase, setPhase] = useState(null);
   const [error, setError] = useState(null);
   const loading = useRef(false);
@@ -27,8 +28,19 @@ export default function StyleStep({ project, update, onNext }) {
   useEffect(() => {
     if (loading.current) return;
     loading.current = true;
-    getStyleReferences(ai, setRefProgress)
-      .then(setReferences)
+    getStyleReferences(
+      ai,
+      (_ratio, total) => total && setRefTotal(total),
+      // كل صورة تصل تُعرض فوراً بدل انتظار الدفعة كاملة
+      (ref) =>
+        setReferences((list) =>
+          [...list, ref].sort((a, b) => a.id.localeCompare(b.id)),
+        ),
+    )
+      .then((all) => {
+        setReferences(all);
+        setRefsReady(true);
+      })
       .catch((err) => setError(errorText(err)));
   }, []);
 
@@ -68,8 +80,8 @@ export default function StyleStep({ project, update, onNext }) {
 
   if (phase) return <Loader phases={FLOW} current={phase} />;
 
-  /* ── انتظار الصور المرجعية ── */
-  if (!references && !error) {
+  /* ── لا شيء وصل بعد ── */
+  if (!references.length && !error) {
     return (
       <div className="loader">
         <div className="loader__orb" />
@@ -77,11 +89,7 @@ export default function StyleStep({ project, update, onNext }) {
           <p className="heading">{t('style.preparing')}</p>
           <p className="small faint">{t('style.preparingNote')}</p>
         </div>
-        {refProgress > 0 && (
-          <div className="stepper__track" style={{ maxWidth: 240 }}>
-            <div className="stepper__fill" style={{ width: `${Math.round(refProgress * 100)}%` }} />
-          </div>
-        )}
+
       </div>
     );
   }
@@ -151,7 +159,7 @@ export default function StyleStep({ project, update, onNext }) {
         )}
 
         <div className="grid-2">
-          {(references ?? []).map((ref) => (
+          {references.map((ref) => (
             <button
               key={ref.id}
               className="pick"
@@ -167,7 +175,16 @@ export default function StyleStep({ project, update, onNext }) {
               )}
             </button>
           ))}
+
+          {!refsReady &&
+            Array.from({ length: Math.max(0, refTotal - references.length) }).map((_, i) => (
+              <div key={`pending-${i}`} className="pick__media skeleton" style={{ borderRadius: 'var(--r-md)' }} />
+            ))}
         </div>
+
+        {!refsReady && (
+          <p className="small faint center mt-4">{t('style.stillPreparing')}</p>
+        )}
       </div>
 
       <ActionBar>
